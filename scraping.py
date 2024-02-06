@@ -7,18 +7,20 @@ import seaborn as sns
 import japanize_matplotlib
 from bs4 import BeautifulSoup
 
+# コーヒーメーカートップ画面取得（製品数の確認）
 url="https://kakaku.com/kaden/coffee-maker/itemlist.aspx"
 res = requests.get(url)
 soup = BeautifulSoup(res.text,"lxml")
 count = soup.find(class_="result").span.text
 
+# 製品数からページ数の判定
 pages = int(count)//40
 
 if int(count)%40 != 0:
     pages += 1
 print(pages)
 
-# データダウンロード
+# 各ページからデータダウンロード
 page_url_base = "https://kakaku.com/kaden/coffee-maker/itemlist.aspx?pdf_pg="
 
 res = []
@@ -28,6 +30,7 @@ for i in range(1,pages+1):
     res.append(requests.get(page_url))
     time.sleep(1)
 
+# DataFrameにデータを格納
 coffeeMaker = pd.DataFrame()
 
 for page in range(len(res)):
@@ -59,9 +62,9 @@ for page in range(len(res)):
     capacity_list = []
     review_list = []
 
-    if page == 4:
+    if page == 5:
         for i in range(length+1):
-            if i <= 35:
+            if i <= 21:
                 type_list.append(elems[i*3+3].find_all("td")[8].text)
                 coffee_list.append(elems[i*3+3].find_all("td")[9].text)
                 espresso_list.append(elems[i*3+3].find_all("td")[10].text)
@@ -75,9 +78,9 @@ for page in range(len(res)):
                 cappuccino_list.append(elems[i*3+2].find_all("td")[11].text)
                 capacity_list.append(elems[i*3+2].find_all("td")[12].text.split('杯')[0])
                 review_list.append(elems[i*3+2].find_all("td")[4].text.split('(')[0])
-    elif page == 5:
+    elif page == 4:
         for i in range(length+1):
-            if i <= 23:
+            if i <= 14:
                 type_list.append(elems[i*3+3].find_all("td")[8].text)
                 coffee_list.append(elems[i*3+3].find_all("td")[9].text)
                 espresso_list.append(elems[i*3+3].find_all("td")[10].text)
@@ -91,13 +94,20 @@ for page in range(len(res)):
                 cappuccino_list.append(elems[i*3+2].find_all("td")[11].text)
                 capacity_list.append(elems[i*3+2].find_all("td")[12].text.split('杯')[0])
                 review_list.append(elems[i*3+2].find_all("td")[4].text.split('(')[0])
-            else:
+            elif i <= 35:
                 type_list.append(elems[i*3+1].find_all("td")[8].text)
                 coffee_list.append(elems[i*3+1].find_all("td")[9].text)
                 espresso_list.append(elems[i*3+1].find_all("td")[10].text)
                 cappuccino_list.append(elems[i*3+1].find_all("td")[11].text)
                 capacity_list.append(elems[i*3+1].find_all("td")[12].text.split('杯')[0])
                 review_list.append(elems[i*3+1].find_all("td")[4].text.split('(')[0])
+            else:
+                type_list.append(elems[i*3].find_all("td")[8].text)
+                coffee_list.append(elems[i*3].find_all("td")[9].text)
+                espresso_list.append(elems[i*3].find_all("td")[10].text)
+                cappuccino_list.append(elems[i*3].find_all("td")[11].text)
+                capacity_list.append(elems[i*3].find_all("td")[12].text.split('杯')[0])
+                review_list.append(elems[i*3].find_all("td")[4].text.split('(')[0])
     else:
         for i in range(length):
             type_list.append(elems[i*3+3].find_all("td")[8].text)
@@ -114,6 +124,12 @@ for page in range(len(res)):
     df['capacity'] = capacity_list
     df['review'] = review_list
 
+#     df['coffee'] = [elems[i*3+3].find_all("td")[9].text for i in range(length)]
+#     df['espresso'] = [elems[i*3+3].find_all("td")[10].text for i in range(length)]
+#     df['cappuccino'] = [elems[i*3+3].find_all("td")[11].text for i in range(length)]
+#     df['capacity'] = [elems[i*3+3].find_all("td")[12].text for i in range(length)]
+#     df['review'] =[elems[i*3+3].find_all("td")[4].text.split('(') for i in range(length)]
+
     coffeeMaker = pd.concat([coffeeMaker, df], axis=0)
 
 coffeeMaker = coffeeMaker.reset_index(drop=True)
@@ -126,6 +142,7 @@ coffeeMaker.to_pickle("coffeeMaker_data.pickle")
 coffeeMaker = pd.read_pickle("coffeeMaker_data.pickle")
 coffeeMaker
 
+# DataFrameを基にグラフの作成（ヒストグラム）
 fig = plt.figure(figsize=(15, 7))
 
 ax1 = fig.add_subplot(2, 3, 1)
@@ -139,6 +156,7 @@ ax1.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int
 
 fig.savefig("hist1.png")
 
+# DataFrameを基にグラフの作成（ヒストグラム）
 fig2 = plt.figure(figsize=(15, 7))
 
 ax2 = fig2.add_subplot()
@@ -152,6 +170,7 @@ ax2.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int
 
 fig2.savefig("hist2.png")
 
+# DataFrameを基にグラフの作成（散布図）
 fig3 = plt.figure(figsize=(20, 10))
 
 ax3 = fig3.add_subplot()
@@ -166,9 +185,11 @@ ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int
 
 fig.savefig("scatter.png")
 
+# 計算用のDataFrame作成
 maker_summary = pd.DataFrame(coffeeMaker['maker'].value_counts())
 maker_summary.columns = ['counts']
 
+# 平均値や最大値などの計算結果を格納
 maker_summary['low'] = 0
 maker_summary['high'] = 0
 maker_summary['average'] = 0
@@ -185,6 +206,7 @@ for i in range(len(maker_summary)):
                                                [coffeeMaker['price'] >= low_limit][coffeeMaker['price']\
                                                                                            <= high_limit].mean())
 
+# DataFrameを基にグラフの作成（棒グラフ）
 fig4 = plt.figure(figsize=(15, 20))
 
 ax4 = fig4.add_subplot()
@@ -199,6 +221,7 @@ ax4.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int
 
 fig4.savefig("bar_label.png")
 
+# DataFrameを基にグラフの作成（箱ひげ図）
 box_data = []
 for i in range(len(maker_summary)):
     box_data.append(list(coffeeMaker['price'][coffeeMaker['maker'] == maker_summary.index[i]]))
@@ -220,6 +243,7 @@ ax5.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int
 
 fig5.savefig("boxplot.png")
 
+# 売れ筋ランキングから上位100位を抽出
 rank_summary = pd.DataFrame(coffeeMaker.sort_values("sell_rank2")[:100]["maker"].value_counts())
 rank_summary.columns = ['counts']
 key_list = []
@@ -229,6 +253,7 @@ for i in rank_summary["counts"].keys():
 for j in rank_summary["counts"]:
     value_list.append(j)
 
+# DataFrameを基にグラフの作成（円グラフ）
 fig6 = plt.figure(figsize=(15, 20))
 
 ax6 = fig6.add_subplot()
